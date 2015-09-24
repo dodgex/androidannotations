@@ -16,13 +16,12 @@
 package org.androidannotations.internal.core.handler;
 
 import static com.helger.jcodemodel.JExpr.invoke;
-import static com.helger.jcodemodel.JExpr.ref;
 
 import org.androidannotations.AndroidAnnotationsEnvironment;
 import org.androidannotations.holder.EComponentHolder;
 import org.androidannotations.internal.core.model.AndroidRes;
 
-import com.helger.jcodemodel.JBlock;
+import com.helger.jcodemodel.IJExpression;
 import com.helger.jcodemodel.JFieldRef;
 
 public class DefaultResHandler extends AbstractResHandler {
@@ -32,7 +31,7 @@ public class DefaultResHandler extends AbstractResHandler {
 	}
 
 	@Override
-	protected void makeCall(String fieldName, EComponentHolder holder, JBlock methodBody, JFieldRef idRef) {
-		methodBody.assign(ref(fieldName), invoke(holder.getResourcesRef(), androidRes.getResourceMethodName()).arg(idRef));
+	protected IJExpression getInstanceInvocation(EComponentHolder holder, JFieldRef idRef) {
+		return invoke(holder.getResourcesRef(), androidRes.getResourceMethodName()).arg(idRef);
 	}
 }
