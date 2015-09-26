@@ -22,6 +22,8 @@ import static com.helger.jcodemodel.JMod.PUBLIC;
 import static com.helger.jcodemodel.JMod.STATIC;
 
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 
 import org.androidannotations.AndroidAnnotationsEnvironment;
@@ -30,7 +32,9 @@ import org.androidannotations.annotations.FragmentArg;
 import org.androidannotations.handler.BaseAnnotationHandler;
 import org.androidannotations.helper.BundleHelper;
 import org.androidannotations.helper.CaseHelper;
+import org.androidannotations.helper.InjectHelper;
 import org.androidannotations.holder.EFragmentHolder;
+import org.androidannotations.holder.HasMethodInjection;
 
 import com.helger.jcodemodel.AbstractJClass;
 import com.helger.jcodemodel.IJExpression;
@@ -40,25 +44,40 @@ import com.helger.jcodemodel.JExpr;
 import com.helger.jcodemodel.JFieldRef;
 import com.helger.jcodemodel.JFieldVar;
 import com.helger.jcodemodel.JMethod;
+import com.helger.jcodemodel.JOp;
 import com.helger.jcodemodel.JVar;
 
-public class FragmentArgHandler extends BaseAnnotationHandler<EFragmentHolder> {
+public class FragmentArgHandler extends BaseAnnotationHandler<EFragmentHolder>implements HasMethodInjection<EFragmentHolder> {
+
+	private final InjectHelper<EFragmentHolder> injectHelper;
 
 	public FragmentArgHandler(AndroidAnnotationsEnvironment environment) {
 		super(FragmentArg.class, environment);
+		injectHelper = new InjectHelper<>(validatorHelper, this, InjectHelper.ValidationMode.FRAGMENT);
 	}
 
 	@Override
 	public void validate(Element element, ElementValidation validation) {
-		validatorHelper.enclosingElementHasEFragment(element,  validation);
+		injectHelper.validate(FragmentArg.class, element, validation);
 
 		validatorHelper.isNotPrivate(element, validation);
 
-		validatorHelper.canBePutInABundle(element, validation);
+		Element param = injectHelper.getParam(element);
+		validatorHelper.canBePutInABundle(param, validation);
 	}
 
 	@Override
 	public void process(Element element, EFragmentHolder holder) {
+		injectHelper.process(element, holder);
+	}
+
+	@Override
+	public JBlock getInvocationBlock(EFragmentHolder holder) {
+		return holder.getInjectArgsBlock();
+	}
+
+	@Override
+	public IJExpression getInstanceInvocation(Element element, EFragmentHolder holder, Element param) {
 		FragmentArg annotation = element.getAnnotation(FragmentArg.class);
 		String argKey = annotation.value();
 		String fieldName = element.getSimpleName().toString();
@@ -67,12 +86,18 @@ public class FragmentArgHandler extends BaseAnnotationHandler<EFragmentHolder> {
 			argKey = fieldName;
 		}
 
-		TypeMirror actualType = codeModelHelper.getActualType(element, holder);
+		DeclaredType enclosingClassType;
+		if (param.getKind() == ElementKind.PARAMETER) {
+			enclosingClassType = (DeclaredType) param.getEnclosingElement().getEnclosingElement().asType();
+		} else {
+			enclosingClassType = (DeclaredType) param.getEnclosingElement().asType();
+		}
+		TypeMirror actualType = codeModelHelper.getActualType(param, enclosingClassType, holder);
 
 		BundleHelper bundleHelper = new BundleHelper(getEnvironment(), actualType);
 		JFieldVar argKeyStaticField = createStaticArgField(holder, argKey, fieldName);
-		injectArgInComponent(element, holder, bundleHelper, argKeyStaticField, fieldName);
-		createBuilderInjectionMethod(element, holder, bundleHelper, argKeyStaticField, fieldName);
+		createBuilderInjectionMethod(param, actualType, holder, bundleHelper, argKeyStaticField, fieldName);
+		return injectArgInComponent(param, actualType, holder, bundleHelper, argKeyStaticField, fieldName);
 	}
 
 	private JFieldVar createStaticArgField(EFragmentHolder holder, String argKey, String fieldName) {
@@ -85,25 +110,26 @@ public class FragmentArgHandler extends BaseAnnotationHandler<EFragmentHolder> {
 		return holder.getGeneratedClass().field(PUBLIC | STATIC | FINAL, getClasses().STRING, staticFieldName, lit(argKey));
 	}
 
-	private void injectArgInComponent(Element element, EFragmentHolder holder, BundleHelper bundleHelper, JFieldVar extraKeyStaticField, String fieldName) {
-		TypeMirror elementType = codeModelHelper.getActualType(element, holder);
-		AbstractJClass elementClass = codeModelHelper.typeMirrorToJClass(elementType);
+	private IJExpression injectArgInComponent(Element element, TypeMirror actualType, EFragmentHolder holder, BundleHelper bundleHelper, JFieldVar extraKeyStaticField, String fieldName) {
+		AbstractJClass elementClass = codeModelHelper.typeMirrorToJClass(actualType);
 
 		JVar bundle = holder.getInjectBundleArgs();
-		JBlock injectExtrasBlock = holder.getInjectArgsBlock();
 		JMethod injectExtrasMethod = holder.getInjectArgsMethod();
-		JFieldRef extraField = JExpr.ref(fieldName);
 
-		JBlock ifContainsKey = injectExtrasBlock._if(JExpr.invoke(bundle, "containsKey").arg(extraKeyStaticField))._then();
 		IJExpression restoreMethodCall = bundleHelper.getExpressionToRestoreFromBundle(elementClass, bundle, extraKeyStaticField, injectExtrasMethod);
-		ifContainsKey.assign(extraField, restoreMethodCall);
+
+		if (element.getKind() == ElementKind.FIELD) {
+			JFieldRef extraField = JExpr.ref(fieldName);
+			return JOp.cond(JExpr.invoke(bundle, "containsKey").arg(extraKeyStaticField), restoreMethodCall, extraField);
+		} else {
+			return restoreMethodCall;
+		}
 	}
 
-	private void createBuilderInjectionMethod(Element element, EFragmentHolder holder, BundleHelper bundleHelper, JFieldVar argKeyStaticField, String fieldName) {
+	private void createBuilderInjectionMethod(Element element, TypeMirror actualType, EFragmentHolder holder, BundleHelper bundleHelper, JFieldVar argKeyStaticField, String fieldName) {
 		JDefinedClass builderClass = holder.getBuilderClass();
 		JFieldRef builderArgsField = holder.getBuilderArgsField();
-		TypeMirror type = codeModelHelper.getActualType(element, holder);
-		AbstractJClass paramClass = codeModelHelper.typeMirrorToJClass(type);
+		AbstractJClass paramClass = codeModelHelper.typeMirrorToJClass(actualType);
 
 		JMethod method = builderClass.method(PUBLIC, holder.narrow(builderClass), fieldName);
 		JVar arg = method.param(paramClass, fieldName);
