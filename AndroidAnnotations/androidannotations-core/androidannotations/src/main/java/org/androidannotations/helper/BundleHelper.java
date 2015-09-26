@@ -176,10 +176,12 @@ public class BundleHelper {
 			if (isTypeParcelable(type)) {
 				methodNameToSave = "put" + "Parcelable";
 				methodNameToRestore = "get" + "Parcelable";
+				restoreCallNeedCastStatement = true;
 			} else if (parcelerHelper.isParcelType(type)) {
 				methodNameToSave = "put" + "Parcelable";
 				methodNameToRestore = "get" + "Parcelable";
 				parcelerBean = true;
+				restoreCallNeedCastStatement = true;
 			} else {
 				methodNameToSave = "put" + "Serializable";
 				methodNameToRestore = "get" + "Serializable";
