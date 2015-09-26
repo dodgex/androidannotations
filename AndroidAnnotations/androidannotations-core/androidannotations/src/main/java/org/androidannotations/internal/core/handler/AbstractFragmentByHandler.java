@@ -17,37 +17,49 @@ package org.androidannotations.internal.core.handler;
 
 import static com.helger.jcodemodel.JExpr.cast;
 import static com.helger.jcodemodel.JExpr.invoke;
-import static com.helger.jcodemodel.JExpr.ref;
+
+import java.lang.annotation.Annotation;
 
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 
 import org.androidannotations.AndroidAnnotationsEnvironment;
 import org.androidannotations.ElementValidation;
 import org.androidannotations.helper.CanonicalNameConstants;
+import org.androidannotations.helper.InjectHelper;
 import org.androidannotations.holder.EComponentWithViewSupportHolder;
 import org.androidannotations.holder.EFragmentHolder;
+import org.androidannotations.holder.HasMethodInjection;
 
 import com.helger.jcodemodel.IJExpression;
 import com.helger.jcodemodel.JBlock;
 import com.helger.jcodemodel.JMethod;
 
+public abstract class AbstractFragmentByHandler extends CoreBaseAnnotationHandler<EComponentWithViewSupportHolder>implements HasMethodInjection<EComponentWithViewSupportHolder> {
 
-public abstract class AbstractFragmentByHandler extends CoreBaseAnnotationHandler<EComponentWithViewSupportHolder> {
+	private final InjectHelper<EComponentWithViewSupportHolder> injectHelper;
 
+	private Class<? extends Annotation> targetClass;
 	protected String findFragmentMethodName;
 
-	public AbstractFragmentByHandler(Class<?> targetClass, AndroidAnnotationsEnvironment environment, String findFragmentMethodName) {
+	public AbstractFragmentByHandler(Class<? extends Annotation> targetClass, AndroidAnnotationsEnvironment environment, String findFragmentMethodName) {
 		super(targetClass, environment);
+		this.targetClass = targetClass;
 		this.findFragmentMethodName = findFragmentMethodName;
+		injectHelper = new InjectHelper<>(validatorHelper, this, InjectHelper.ValidationMode.VIEW_SUPPORT);
 	}
 
 	@Override
 	protected void validate(Element element, ElementValidation validation) {
-		validatorHelper.enclosingElementHasEnhancedViewSupportAnnotation(element, validation);
+		injectHelper.validate(targetClass, element, validation);
 
-		validatorHelper.extendsFragment(element, validation);
+		Element param = element;
+		if (element instanceof ExecutableElement) {
+			param = ((ExecutableElement) element).getParameters().get(0);
+		}
+		validatorHelper.extendsFragment(param, validation);
 
 		validatorHelper.isNotPrivate(element, validation);
 
@@ -60,24 +72,33 @@ public abstract class AbstractFragmentByHandler extends CoreBaseAnnotationHandle
 
 	@Override
 	public final void process(Element element, EComponentWithViewSupportHolder holder) throws Exception {
-		TypeMirror elementType = element.asType();
+		injectHelper.process(element, holder);
+	}
+
+	@Override
+	public JBlock getInvocationBlock(EComponentWithViewSupportHolder holder) {
+		return holder.getOnViewChangedBody();
+	}
+
+	@Override
+	public IJExpression getInstanceInvocation(Element element, EComponentWithViewSupportHolder holder, Element param) {
+		TypeMirror elementType = param.asType();
 		String typeQualifiedName = elementType.toString();
 		TypeElement nativeFragmentElement = annotationHelper.typeElementFromQualifiedName(CanonicalNameConstants.FRAGMENT);
 		boolean isNativeFragment = nativeFragmentElement != null && annotationHelper.isSubtype(elementType, nativeFragmentElement.asType());
 
 		String fieldName = element.getSimpleName().toString();
-		JBlock methodBody = holder.getOnViewChangedBody();
 
 		if (holder instanceof EFragmentHolder) {
 			boolean childFragment = annotationHelper.extractAnnotationParameter(element, "childFragment");
 
 			String fragmentManagerGetter = childFragment ? "getChildFragmentManager" : "getFragmentManager";
 
-			methodBody.assign(ref(fieldName), cast(getJClass(typeQualifiedName), invoke(fragmentManagerGetter).invoke(findFragmentMethodName).arg(getFragmentId(element, fieldName))));
+			return cast(getJClass(typeQualifiedName), invoke(fragmentManagerGetter).invoke(findFragmentMethodName).arg(getFragmentId(element, fieldName)));
 		} else {
 			JMethod findFragmentMethod = getFindFragmentMethod(isNativeFragment, holder);
 
-			methodBody.assign(ref(fieldName), cast(getJClass(typeQualifiedName), invoke(findFragmentMethod).arg(getFragmentId(element, fieldName))));
+			return cast(getJClass(typeQualifiedName), invoke(findFragmentMethod).arg(getFragmentId(element, fieldName)));
 		}
 	}
 
