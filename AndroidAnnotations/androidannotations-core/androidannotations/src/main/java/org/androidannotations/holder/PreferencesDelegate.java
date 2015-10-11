@@ -39,6 +39,7 @@ import com.helger.jcodemodel.JVar;
 public class PreferencesDelegate extends GeneratedClassHolderDelegate<EComponentWithViewSupportHolder> implements HasPreferences {
 
 	protected JBlock addPreferencesFromResourceBlock;
+	protected JBlock addPreferencesFromResourceBlockBeforeInject;
 
 	private boolean usingSupportV7Preference = false;
 	private AbstractJClass basePreferenceClass;
@@ -71,39 +72,26 @@ public class PreferencesDelegate extends GeneratedClassHolderDelegate<EComponent
 		return addPreferencesFromResourceBlock;
 	}
 
+	public JBlock getAddPreferencesFromResourceBlockBeforeInject() {
+		if (addPreferencesFromResourceBlockBeforeInject == null) {
+			setAddPreferencesFromResourceBlock();
+		}
+		return addPreferencesFromResourceBlockBeforeInject;
+	}
+
 	private void setAddPreferencesFromResourceBlock() {
 		JMethod method = getGeneratedClass().method(PUBLIC, codeModel().VOID, "addPreferencesFromResource");
 		method.annotate(Override.class);
 		JVar preferencesResIdParam = method.param(int.class, "preferencesResId");
 		method.body().invoke(JExpr._super(), "addPreferencesFromResource").arg(preferencesResIdParam);
 		addPreferencesFromResourceBlock = method.body();
+		addPreferencesFromResourceBlockBeforeInject = addPreferencesFromResourceBlock.blockSimple(); // TODO use blockVirtual()
 	}
 
 	private JInvocation findPreferenceByKey(JFieldRef idRef) {
 		JInvocation getString = invoke(_this(), "getString").arg(idRef);
 		JInvocation findPreferenceByKey = invoke(_this(), "findPreference");
 		return findPreferenceByKey.arg(getString);
-	}
-
-	@Override
-	public void assignFindPreferenceByKey(JFieldRef idRef, AbstractJClass preferenceClass, JFieldRef fieldRef) {
-		String idRefString = idRef.name();
-		FoundPreferenceHolder foundViewHolder = (FoundPreferenceHolder) holder.foundHolders.get(idRefString);
-
-		JBlock block = getAddPreferencesFromResourceBlock();
-		IJExpression assignExpression;
-
-		if (foundViewHolder != null) {
-			assignExpression = foundViewHolder.getOrCastRef(preferenceClass);
-		} else {
-			assignExpression = findPreferenceByKey(idRef);
-			if (preferenceClass != null && preferenceClass != getClasses().PREFERENCE && preferenceClass != getClasses().SUPPORT_V7_PREFERENCE) {
-				assignExpression = cast(preferenceClass, assignExpression);
-			}
-			holder.foundHolders.put(idRefString, new FoundPreferenceHolder(this, preferenceClass, fieldRef, block));
-		}
-
-		block.assign(fieldRef, assignExpression);
 	}
 
 	@Override
@@ -129,7 +117,7 @@ public class PreferencesDelegate extends GeneratedClassHolderDelegate<EComponent
 
 	private FoundPreferenceHolder createFoundPreferenceAndIfNotNullBlock(JFieldRef idRef, AbstractJClass preferenceClass) {
 		IJExpression findPreferenceExpression = findPreferenceByKey(idRef);
-		JBlock block = getAddPreferencesFromResourceBlock().blockSimple();
+		JBlock block = getAddPreferencesFromResourceBlockBeforeInject();
 
 		if (preferenceClass == null) {
 			preferenceClass = basePreferenceClass;
@@ -137,7 +125,9 @@ public class PreferencesDelegate extends GeneratedClassHolderDelegate<EComponent
 			findPreferenceExpression = cast(preferenceClass, findPreferenceExpression);
 		}
 
-		JVar preference = block.decl(preferenceClass, "preference", findPreferenceExpression);
+		JVar preference = block.decl(preferenceClass, "preference_" + idRef.name(), findPreferenceExpression);
+		// TODO remove as soon as blockVirtual() is available in jcodemodel
+		block.bracesRequired(false).indentRequired(false);
 		return new FoundPreferenceHolder(this, preferenceClass, preference, block);
 	}
 
