@@ -22,6 +22,7 @@ import java.util.List;
 import org.androidannotations.AndroidAnnotationsEnvironment;
 import org.androidannotations.Option;
 import org.androidannotations.handler.AnnotationHandler;
+import org.androidannotations.helper.BeanRegistry;
 import org.androidannotations.internal.core.handler.AfterExtrasHandler;
 import org.androidannotations.internal.core.handler.AfterInjectHandler;
 import org.androidannotations.internal.core.handler.AfterPreferencesHandler;
@@ -39,6 +40,7 @@ import org.androidannotations.internal.core.handler.DefaultResHandler;
 import org.androidannotations.internal.core.handler.DrawableResHandler;
 import org.androidannotations.internal.core.handler.EActivityHandler;
 import org.androidannotations.internal.core.handler.EApplicationHandler;
+import org.androidannotations.internal.core.handler.EBeanConfigurationHandler;
 import org.androidannotations.internal.core.handler.EBeanHandler;
 import org.androidannotations.internal.core.handler.EFragmentHandler;
 import org.androidannotations.internal.core.handler.EIntentServiceHandler;
@@ -122,6 +124,7 @@ public class CorePlugin extends AndroidAnnotationsPlugin {
 
 	@Override
 	public List<AnnotationHandler<?>> getHandlers(AndroidAnnotationsEnvironment androidAnnotationEnv) {
+		BeanRegistry beanRegistry = new BeanRegistry();
 		List<AnnotationHandler<?>> annotationHandlers = new ArrayList<>();
 		annotationHandlers.add(new EApplicationHandler(androidAnnotationEnv));
 		annotationHandlers.add(new EActivityHandler(androidAnnotationEnv));
@@ -131,6 +134,7 @@ public class CorePlugin extends AndroidAnnotationsPlugin {
 		annotationHandlers.add(new EIntentServiceHandler(androidAnnotationEnv));
 		annotationHandlers.add(new EFragmentHandler(androidAnnotationEnv));
 		annotationHandlers.add(new EBeanHandler(androidAnnotationEnv));
+		annotationHandlers.add(new EBeanConfigurationHandler(androidAnnotationEnv, beanRegistry));
 		annotationHandlers.add(new EViewGroupHandler(androidAnnotationEnv));
 		annotationHandlers.add(new EViewHandler(androidAnnotationEnv));
 		annotationHandlers.add(new SharedPrefHandler(androidAnnotationEnv));
