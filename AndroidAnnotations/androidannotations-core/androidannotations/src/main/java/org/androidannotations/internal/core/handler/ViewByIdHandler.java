@@ -25,25 +25,34 @@ import org.androidannotations.ElementValidation;
 import org.androidannotations.annotations.ViewById;
 import org.androidannotations.handler.BaseAnnotationHandler;
 import org.androidannotations.helper.IdValidatorHelper;
+import org.androidannotations.helper.InjectHelper;
 import org.androidannotations.holder.EComponentWithViewSupportHolder;
+import org.androidannotations.holder.EFragmentHolder;
+import org.androidannotations.holder.HasMethodInjection;
 import org.androidannotations.rclass.IRClass;
 
 import com.helger.jcodemodel.AbstractJClass;
+import com.helger.jcodemodel.IJExpression;
+import com.helger.jcodemodel.JBlock;
 import com.helger.jcodemodel.JFieldRef;
 
-public class ViewByIdHandler extends BaseAnnotationHandler<EComponentWithViewSupportHolder> {
+public class ViewByIdHandler extends BaseAnnotationHandler<EComponentWithViewSupportHolder>implements HasMethodInjection<EComponentWithViewSupportHolder> {
+
+	private final InjectHelper<EComponentWithViewSupportHolder> injectHelper;
 
 	public ViewByIdHandler(AndroidAnnotationsEnvironment environment) {
 		super(ViewById.class, environment);
+		injectHelper = new InjectHelper<>(validatorHelper, this, InjectHelper.ValidationMode.VIEW_SUPPORT);
 	}
 
 	@Override
 	public void validate(Element element, ElementValidation validation) {
-		validatorHelper.enclosingElementHasEnhancedViewSupportAnnotation(element, validation);
+		injectHelper.validate(ViewById.class, element, validation);
 
-		validatorHelper.isDeclaredType(element, validation);
+		Element param = injectHelper.getParam(element);
+		validatorHelper.isDeclaredType(param, validation);
 
-		validatorHelper.extendsView(element, validation);
+		validatorHelper.extendsView(param, validation);
 
 		validatorHelper.resIdsExist(element, IRClass.Res.ID, IdValidatorHelper.FallbackStrategy.USE_ELEMENT_NAME, validation);
 
@@ -52,14 +61,25 @@ public class ViewByIdHandler extends BaseAnnotationHandler<EComponentWithViewSup
 
 	@Override
 	public void process(Element element, EComponentWithViewSupportHolder holder) {
-		String fieldName = element.getSimpleName().toString();
+		injectHelper.process(element, holder);
+		if (holder instanceof EFragmentHolder) {
+			String fieldName = element.getSimpleName().toString();
+			((EFragmentHolder) holder).clearInjectedView(ref(fieldName));
+		}
+	}
 
-		TypeMirror uiFieldTypeMirror = element.asType();
+	@Override
+	public JBlock getInvocationBlock(EComponentWithViewSupportHolder holder) {
+		return holder.getOnViewChangedBody();
+	}
+
+	@Override
+	public IJExpression getInstanceInvocation(Element element, EComponentWithViewSupportHolder holder, Element param) {
+		TypeMirror uiFieldTypeMirror = param.asType();
 
 		JFieldRef idRef = annotationHelper.extractOneAnnotationFieldRef(element, IRClass.Res.ID, true);
 		AbstractJClass viewClass = codeModelHelper.typeMirrorToJClass(uiFieldTypeMirror);
-		JFieldRef fieldRef = ref(fieldName);
 
-		holder.processViewById(idRef, viewClass, fieldRef);
+		return holder.getFoundViewHolder(idRef, viewClass).getOrCastRef(viewClass);
 	}
 }

@@ -52,6 +52,7 @@ public abstract class EComponentWithViewSupportHolder extends EComponentHolder i
 	protected ViewNotifierHelper viewNotifierHelper;
 	private JMethod onViewChanged;
 	private JBlock onViewChangedBody;
+	private JBlock onViewChangedBodyFindViews;
 	private JBlock onViewChangedBodyBeforeFindViews;
 	private JVar onViewChangedHasViewsParam;
 	protected Map<String, FoundHolder> foundHolders = new HashMap<>();
@@ -76,6 +77,13 @@ public abstract class EComponentWithViewSupportHolder extends EComponentHolder i
 		return onViewChangedBody;
 	}
 
+	public JBlock getOnViewChangedBodyFindViews() {
+		if (onViewChangedBodyFindViews == null) {
+			setOnViewChanged();
+		}
+		return onViewChangedBodyFindViews;
+	}
+
 	public JBlock getOnViewChangedBodyBeforeFindViews() {
 		if (onViewChangedBodyBeforeFindViews == null) {
 			setOnViewChanged();
@@ -95,7 +103,8 @@ public abstract class EComponentWithViewSupportHolder extends EComponentHolder i
 		onViewChanged = getGeneratedClass().method(PUBLIC, getCodeModel().VOID, "onViewChanged");
 		onViewChanged.annotate(Override.class);
 		onViewChangedBody = onViewChanged.body();
-		onViewChangedBodyBeforeFindViews = onViewChangedBody.blockSimple();
+		onViewChangedBodyBeforeFindViews = onViewChangedBody.blockSimple(); // TODO use blockVirtual
+		onViewChangedBodyFindViews = onViewChangedBody.blockSimple(); // TODO use blockVirtual
 		onViewChangedHasViewsParam = onViewChanged.param(HasViews.class, "hasViews");
 		AbstractJClass notifierClass = getJClass(OnViewChangedNotifier.class);
 		getInitBody().staticInvoke(notifierClass, "registerOnViewChangedListener").arg(_this());
@@ -105,34 +114,6 @@ public abstract class EComponentWithViewSupportHolder extends EComponentHolder i
 		JInvocation findViewById = invoke(getOnViewChangedHasViewsParam(), "findViewById");
 		findViewById.arg(idRef);
 		return findViewById;
-	}
-
-	public void processViewById(JFieldRef idRef, AbstractJClass viewClass, JFieldRef fieldRef) {
-		assignFindViewById(idRef, viewClass, fieldRef);
-	}
-
-	public void assignFindViewById(JFieldRef idRef, AbstractJClass viewClass, JFieldRef fieldRef) {
-		String idRefString = idRef.name();
-		FoundViewHolder foundViewHolder = (FoundViewHolder) foundHolders.get(idRefString);
-
-		JBlock block = getOnViewChangedBody();
-		IJExpression assignExpression;
-
-		if (foundViewHolder != null) {
-			assignExpression = foundViewHolder.getOrCastRef(viewClass);
-		} else {
-			assignExpression = findViewById(idRef);
-			if (viewClass != null && viewClass != getClasses().VIEW) {
-				assignExpression = cast(viewClass, assignExpression);
-
-				if (viewClass.isParameterized()) {
-					codeModelHelper.addSuppressWarnings(onViewChanged, "unchecked");
-				}
-			}
-			foundHolders.put(idRefString, new FoundViewHolder(this, viewClass, fieldRef, block));
-		}
-
-		block.assign(fieldRef, assignExpression);
 	}
 
 	public FoundViewHolder getFoundViewHolder(JFieldRef idRef, AbstractJClass viewClass) {
@@ -147,7 +128,7 @@ public abstract class EComponentWithViewSupportHolder extends EComponentHolder i
 
 	protected FoundViewHolder createFoundViewAndIfNotNullBlock(JFieldRef idRef, AbstractJClass viewClass) {
 		IJExpression findViewExpression = findViewById(idRef);
-		JBlock block = getOnViewChangedBody().blockSimple();
+		JBlock block = getOnViewChangedBodyFindViews();
 
 		if (viewClass == null) {
 			viewClass = getClasses().VIEW;
@@ -155,8 +136,13 @@ public abstract class EComponentWithViewSupportHolder extends EComponentHolder i
 			findViewExpression = cast(viewClass, findViewExpression);
 		}
 
-		JVar view = block.decl(viewClass, "view", findViewExpression);
-		return new FoundViewHolder(this, viewClass, view, block);
+		JVar view = block.decl(viewClass, "view_" + idRef.name(), findViewExpression);
+		// TODO remove as soon as blockVirtual() is available in jcodemodel
+		block.bracesRequired(false).indentRequired(false);
+		if (viewClass.isParameterized()) {
+			codeModelHelper.addSuppressWarnings(view, "unchecked");
+		}
+		return new FoundViewHolder(this, viewClass, view, getOnViewChangedBody());
 	}
 
 	public JMethod getFindNativeFragmentById() {
