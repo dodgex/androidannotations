@@ -31,6 +31,7 @@ import org.androidannotations.internal.core.handler.AfterViewsHandler;
 import org.androidannotations.internal.core.handler.AnimationResHandler;
 import org.androidannotations.internal.core.handler.AppHandler;
 import org.androidannotations.internal.core.handler.BackgroundHandler;
+import org.androidannotations.internal.core.handler.BeanConfigurationHandler;
 import org.androidannotations.internal.core.handler.BeanHandler;
 import org.androidannotations.internal.core.handler.BeforeTextChangeHandler;
 import org.androidannotations.internal.core.handler.CheckedChangeHandler;
@@ -167,6 +168,7 @@ public class CorePlugin extends AndroidAnnotationsPlugin {
 		annotationHandlers.add(new TransactionalHandler(androidAnnotationEnv));
 		annotationHandlers.add(new FragmentArgHandler(androidAnnotationEnv));
 		annotationHandlers.add(new SystemServiceHandler(androidAnnotationEnv));
+		annotationHandlers.add(new BeanConfigurationHandler(androidAnnotationEnv, beanRegistry));
 
 		annotationHandlers.add(new AppHandler(androidAnnotationEnv));
 		annotationHandlers.add(new BeanHandler(androidAnnotationEnv));
