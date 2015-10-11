@@ -21,23 +21,23 @@ import javax.lang.model.type.TypeMirror;
 import org.androidannotations.AndroidAnnotationsEnvironment;
 import org.androidannotations.ElementValidation;
 import org.androidannotations.annotations.Bean;
-import org.androidannotations.annotations.EBean;
 import org.androidannotations.handler.BaseAnnotationHandler;
+import org.androidannotations.helper.BeanRegistry;
 import org.androidannotations.helper.InjectHelper;
-import org.androidannotations.holder.EBeanHolder;
 import org.androidannotations.holder.EComponentHolder;
 import org.androidannotations.holder.HasMethodInjection;
 
-import com.helger.jcodemodel.AbstractJClass;
 import com.helger.jcodemodel.IJExpression;
 import com.helger.jcodemodel.JBlock;
 
 public class BeanHandler extends BaseAnnotationHandler<EComponentHolder>implements HasMethodInjection<EComponentHolder> {
 
 	private final InjectHelper<EComponentHolder> injectHelper;
+	private BeanRegistry beanRegistry;
 
-	public BeanHandler(AndroidAnnotationsEnvironment environment) {
+	public BeanHandler(AndroidAnnotationsEnvironment environment, BeanRegistry beanRegistry) {
 		super(Bean.class, environment);
+		this.beanRegistry = beanRegistry;
 		injectHelper = new InjectHelper<>(validatorHelper, this);
 	}
 
@@ -45,7 +45,10 @@ public class BeanHandler extends BaseAnnotationHandler<EComponentHolder>implemen
 	public void validate(Element element, ElementValidation validation) {
 		injectHelper.validate(Bean.class, element, validation);
 
-		validatorHelper.typeOrTargetValueHasAnnotation(EBean.class, element, validation);
+		Element param = injectHelper.getParam(element);
+		if (!beanRegistry.hasBean(param.asType())) {
+			validation.addError(element, "No EBean for " + param.asType() + " registred.");
+		}
 
 		validatorHelper.isNotPrivate(element, validation);
 	}
@@ -67,8 +70,6 @@ public class BeanHandler extends BaseAnnotationHandler<EComponentHolder>implemen
 			typeMirror = param.asType();
 			typeMirror = getProcessingEnvironment().getTypeUtils().erasure(typeMirror);
 		}
-		String typeQualifiedName = typeMirror.toString();
-		AbstractJClass injectedClass = getJClass(annotationHelper.generatedClassQualifiedNameFromQualifiedName(typeQualifiedName));
-		return injectedClass.staticInvoke(EBeanHolder.GET_INSTANCE_METHOD_NAME).arg(holder.getContextRef());
+		return beanRegistry.getBean(typeMirror, holder.getContextRef());
 	}
 }

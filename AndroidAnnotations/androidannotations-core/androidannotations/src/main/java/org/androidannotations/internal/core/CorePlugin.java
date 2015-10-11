@@ -171,7 +171,7 @@ public class CorePlugin extends AndroidAnnotationsPlugin {
 		annotationHandlers.add(new BeanConfigurationHandler(androidAnnotationEnv, beanRegistry));
 
 		annotationHandlers.add(new AppHandler(androidAnnotationEnv));
-		annotationHandlers.add(new BeanHandler(androidAnnotationEnv));
+		annotationHandlers.add(new BeanHandler(androidAnnotationEnv, beanRegistry));
 		annotationHandlers.add(new InjectMenuHandler(androidAnnotationEnv));
 		annotationHandlers.add(new OptionsMenuHandler(androidAnnotationEnv));
 		annotationHandlers.add(new OptionsMenuItemHandler(androidAnnotationEnv));
