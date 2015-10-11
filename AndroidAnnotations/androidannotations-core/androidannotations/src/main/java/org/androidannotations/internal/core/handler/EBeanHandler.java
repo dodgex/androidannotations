@@ -22,12 +22,19 @@ import org.androidannotations.AndroidAnnotationsEnvironment;
 import org.androidannotations.ElementValidation;
 import org.androidannotations.annotations.EBean;
 import org.androidannotations.handler.BaseGeneratingAnnotationHandler;
+import org.androidannotations.helper.BeanRegistry;
 import org.androidannotations.holder.EBeanHolder;
+
+import com.helger.jcodemodel.AbstractJType;
+import com.helger.jcodemodel.JMethod;
 
 public class EBeanHandler extends BaseGeneratingAnnotationHandler<EBeanHolder> {
 
-	public EBeanHandler(AndroidAnnotationsEnvironment environment) {
+	private BeanRegistry beanRegistry;
+
+	public EBeanHandler(AndroidAnnotationsEnvironment environment, BeanRegistry beanRegistry) {
 		super(EBean.class, environment);
+		this.beanRegistry = beanRegistry;
 	}
 
 	@Override
@@ -38,6 +45,7 @@ public class EBeanHandler extends BaseGeneratingAnnotationHandler<EBeanHolder> {
 	@Override
 	public void validate(Element element, ElementValidation valid) {
 		super.validate(element, valid);
+		beanRegistry.registerBean(element.asType(), null, null);
 
 		validatorHelper.isNotInterface((TypeElement) element, valid);
 
@@ -58,5 +66,8 @@ public class EBeanHandler extends BaseGeneratingAnnotationHandler<EBeanHolder> {
 			holder.invokeInitInConstructor();
 			holder.createRebindMethod();
 		}
+
+		JMethod method = holder.getGeneratedClass().getMethod(EBeanHolder.GET_INSTANCE_METHOD_NAME, new AbstractJType[] { getClasses().CONTEXT });
+		beanRegistry.registerBean(element.asType(), holder.getGeneratedClass(), method);
 	}
 }

@@ -133,7 +133,7 @@ public class CorePlugin extends AndroidAnnotationsPlugin {
 		annotationHandlers.add(new EServiceHandler(androidAnnotationEnv));
 		annotationHandlers.add(new EIntentServiceHandler(androidAnnotationEnv));
 		annotationHandlers.add(new EFragmentHandler(androidAnnotationEnv));
-		annotationHandlers.add(new EBeanHandler(androidAnnotationEnv));
+		annotationHandlers.add(new EBeanHandler(androidAnnotationEnv, beanRegistry));
 		annotationHandlers.add(new EBeanConfigurationHandler(androidAnnotationEnv, beanRegistry));
 		annotationHandlers.add(new EViewGroupHandler(androidAnnotationEnv));
 		annotationHandlers.add(new EViewHandler(androidAnnotationEnv));
