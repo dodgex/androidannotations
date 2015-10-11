@@ -32,6 +32,9 @@ public class BeanInjectedActivity extends Activity {
 	@Bean
 	public SomeSingleton singletonDependency;
 
+	@Bean
+	public ProvidedBean providedDependency;
+
 	public EmptyDependency methodInjectedDependency;
 	public SomeSingleton methodInjectedSingleton;
 	public SomeInterface methodInjectedInterface;

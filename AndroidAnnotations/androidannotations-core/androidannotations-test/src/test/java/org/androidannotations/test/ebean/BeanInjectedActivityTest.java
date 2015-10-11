@@ -117,4 +117,9 @@ public class BeanInjectedActivityTest {
 		BeanInjectedActivity_ newActivity = Robolectric.buildActivity(BeanInjectedActivity_.class).create().get();
 		assertThat(newActivity.multiDependencySingleton).isSameAs(initialDependency);
 	}
+
+	@Test
+	public void providedBeanInjected() {
+		assertThat(activity.providedDependency).isNotNull();
+	}
 }
